@@ -4,7 +4,7 @@ import Web3 from 'web3';
 const NETWORK_CONFIG = {
   name: 'Iperchain Network',
   chainId: 19671204,
-  rpcUrl: 'https://testnet.iperchain.com:8545',
+  rpcUrl: 'https://testnet.iperchain.com',
   blockTime: 5000, // 5 seconds
 };
 
