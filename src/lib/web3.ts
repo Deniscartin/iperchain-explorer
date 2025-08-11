@@ -5,33 +5,19 @@ const NETWORK_CONFIG = {
   name: 'Iperchain Network',
   chainId: 19671204,
   rpcUrl: 'http://testnet.iperchain.com:8545',
-  wsUrl: 'ws://testnet.iperchain.com:8546',
   blockTime: 5000, // 5 seconds
 };
 
 class Web3Service {
   private web3: Web3;
-  private wsWeb3: Web3;
 
   constructor() {
     this.web3 = new Web3(NETWORK_CONFIG.rpcUrl);
-    // Temporarily disable WebSocket to avoid connection issues
-    try {
-      this.wsWeb3 = new Web3(NETWORK_CONFIG.wsUrl);
-    } catch (error) {
-      console.warn('WebSocket connection failed, using HTTP for all connections:', error);
-      this.wsWeb3 = new Web3(NETWORK_CONFIG.rpcUrl);
-    }
   }
 
   // Get Web3 instance
   getWeb3() {
     return this.web3;
-  }
-
-  // Get WebSocket Web3 instance for real-time updates
-  getWsWeb3() {
-    return this.wsWeb3;
   }
 
   // Get network info
@@ -138,17 +124,30 @@ class Web3Service {
     }
   }
 
-  // Subscribe to new blocks
-  async subscribeToNewBlocks(callback: (block: any) => void) {
-    try {
-      const subscription = await this.wsWeb3.eth.subscribe('newBlockHeaders');
-      subscription.on('data', callback);
-      subscription.on('error', console.error);
-      return subscription;
-    } catch (error) {
-      console.error('Error subscribing to new blocks:', error);
-      throw error;
-    }
+  // Subscribe to new blocks using polling (since WebSocket is disabled)
+  subscribeToNewBlocks(callback: (block: any) => void) {
+    let lastBlockNumber = 0;
+    
+    const pollForNewBlocks = async () => {
+      try {
+        const currentBlockNumber = await this.getLatestBlockNumber();
+        if (currentBlockNumber > lastBlockNumber) {
+          const block = await this.getBlock(currentBlockNumber, false);
+          lastBlockNumber = currentBlockNumber;
+          callback(block);
+        }
+      } catch (error) {
+        console.error('Error polling for new blocks:', error);
+      }
+    };
+
+    // Poll every 5 seconds (matching blockTime)
+    const intervalId = setInterval(pollForNewBlocks, NETWORK_CONFIG.blockTime);
+    
+    // Return an object with unsubscribe method for compatibility
+    return {
+      unsubscribe: () => clearInterval(intervalId)
+    };
   }
 
   // Format address (truncate middle)
